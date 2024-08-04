@@ -14,11 +14,15 @@ int main() {
 
     printf("Server listening on interface %s\n", INTERFACE_NAME);
 
-    while (1) {
-        Frame received_frame;
-        if (receive_frame(socket, &received_frame) == 0) {
-            printf("Received frame: type=%d, size=%d, data=%.*s\n",
-                   received_frame.type, received_frame.size,
+uint8_t last_sequence = 255; // Initialize to an invalid sequence number
+
+while (1) {
+    Frame received_frame;
+    if (receive_frame(socket, &received_frame) == 0) {
+        // Only process the frame if it's a new sequence number
+        if (received_frame.sequence != last_sequence) {
+            printf("Received frame: type=%d, size=%d, sequence=%d, data=%.*s\n",
+                   received_frame.type, received_frame.size, received_frame.sequence,
                    received_frame.size, received_frame.data);
 
             // Echo the frame back to the client
@@ -27,8 +31,12 @@ int main() {
             if (send_frame(socket, &response_frame) < 0) {
                 fprintf(stderr, "Failed to send response frame\n");
             }
+
+            // Update the last seen sequence number
+            last_sequence = received_frame.sequence;
         }
     }
+}
 
     close(socket);
     return 0;

@@ -12,8 +12,10 @@ int main() {
         return 1;
     }
 
+    static uint8_t sequence = 0;
+
     const char* test_message = "Hello, server!";
-    Frame frame_to_send = create_frame(strlen(test_message), 0, DATA, (const uint8_t*)test_message);
+    Frame frame_to_send = create_frame(strlen(test_message), sequence++, DATA, (const uint8_t*)test_message);
 
     printf("Sending frame: type=%d, size=%d, data=%s\n",
            frame_to_send.type, frame_to_send.size, frame_to_send.data);
