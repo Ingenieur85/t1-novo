@@ -24,7 +24,7 @@ int main() {
         printf("Frame sent successfully\n");
 
         // Wait for echo
-        Frame echo_frame;  // Changed variable name from recv_frame to echo_frame
+        Frame echo_frame;
         if (recv_frame(socket, &echo_frame) == 0) {
             printf("Received echo:\n");
             print_frame(&echo_frame);

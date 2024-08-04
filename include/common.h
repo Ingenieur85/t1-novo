@@ -36,7 +36,7 @@ enum MessageType {
 // Function prototypes
 void init_crc8_table(void);
 void create_frame(Frame *frame, uint8_t size, uint8_t sequence, uint8_t type, const uint8_t *data);
-uint8_t calculate_crc(const Frame *frame);
+uint8_t calculate_crc(const uint8_t *data, size_t len);
 int send_frame(int socket, const Frame *frame);
 int recv_frame(int socket, Frame *frame);
 void print_frame(const Frame *frame);

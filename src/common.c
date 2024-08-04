@@ -27,14 +27,13 @@ void create_frame(Frame *frame, uint8_t size, uint8_t sequence, uint8_t type, co
         memcpy(frame->data, data, size);
     }
     
-    frame->crc = calculate_crc(frame);
+    frame->crc = calculate_crc((uint8_t*)frame, FRAME_HEADER_SIZE + size);
 }
 
-uint8_t calculate_crc(const Frame *frame) {
+uint8_t calculate_crc(const uint8_t *data, size_t len) {
     uint8_t crc = 0;
-    const uint8_t *data = (const uint8_t *)frame;
     
-    for (int i = 0; i < FRAME_HEADER_SIZE + (frame->size_seq >> 2); i++) {
+    for (size_t i = 0; i < len; i++) {
         crc = crc8_table[crc ^ data[i]];
     }
     
@@ -73,11 +72,11 @@ int recv_frame(int socket, Frame *frame) {
     }
 
     uint8_t received_crc = frame->crc;
-    frame->crc = 0;
-    uint8_t calculated_crc = calculate_crc(frame);
+    size_t frame_size = FRAME_HEADER_SIZE + (frame->size_seq >> 2);
+    uint8_t calculated_crc = calculate_crc((uint8_t*)frame, frame_size);
 
     if (received_crc != calculated_crc) {
-        fprintf(stderr, "CRC mismatch\n");
+        fprintf(stderr, "CRC mismatch: received 0x%02X, calculated 0x%02X\n", received_crc, calculated_crc);
         return -1;
     }
 
