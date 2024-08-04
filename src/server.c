@@ -1,9 +1,11 @@
-// server.c
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include "protocol.h"
 #include "rawsocket.h"
+
+#define VIDEO_DIR "videos/"
 
 int main() {
     int socket = cria_raw_socket(INTERFACE_NAME);
@@ -14,29 +16,57 @@ int main() {
 
     printf("Server listening on interface %s\n", INTERFACE_NAME);
 
-uint8_t last_sequence = 255; // Initialize to an invalid sequence number
-
-while (1) {
-    Frame received_frame;
-    if (receive_frame(socket, &received_frame) == 0) {
-        // Only process the frame if it's a new sequence number
-        if (received_frame.sequence != last_sequence) {
-            printf("Received frame: type=%d, size=%d, sequence=%d, data=%.*s\n",
-                   received_frame.type, received_frame.size, received_frame.sequence,
-                   received_frame.size, received_frame.data);
-
-            // Echo the frame back to the client
-            Frame response_frame = create_frame(received_frame.size, received_frame.sequence,
-                                                DATA, received_frame.data);
-            if (send_frame(socket, &response_frame) < 0) {
-                fprintf(stderr, "Failed to send response frame\n");
+    while (1) {
+        Frame request_frame;
+        if (receive_frame_with_timeout(socket, &request_frame, TIMEOUT_SEC) == 0) {
+            if (request_frame.type == DOWNLOAD) {
+                char filename[64] = {0};
+                strncpy(filename, (char*)request_frame.data, request_frame.size);
+                
+                char filepath[128];
+                snprintf(filepath, sizeof(filepath), "%s%s", VIDEO_DIR, filename);
+                
+                FILE* fp = fopen(filepath, "rb");
+                if (!fp) {
+                    fprintf(stderr, "Failed to open file: %s\n", filepath);
+                    Frame error_frame = create_frame(1, request_frame.sequence, ERROR, (const uint8_t*)"\x02");
+                    send_frame_with_timeout(socket, &error_frame, TIMEOUT_SEC);
+                    continue;
+                }
+                
+                fseek(fp, 0, SEEK_END);
+                size_t file_size = ftell(fp);
+                fseek(fp, 0, SEEK_SET);
+                
+                // Send file descriptor
+                Frame descriptor_frame = create_frame(sizeof(size_t), request_frame.sequence, FILE_DESCRIPTOR, (const uint8_t*)&file_size);
+                if (send_and_wait_ack(socket, &descriptor_frame, MAX_RETRIES) < 0) {
+                    fprintf(stderr, "Failed to send file descriptor\n");
+                    fclose(fp);
+                    continue;
+                }
+                
+                // Send file data
+                uint8_t* file_buffer = malloc(file_size);
+                if (!file_buffer) {
+                    fprintf(stderr, "Failed to allocate memory for file\n");
+                    fclose(fp);
+                    continue;
+                }
+                
+                fread(file_buffer, 1, file_size, fp);
+                fclose(fp);
+                
+                uint8_t sequence = 0;
+                if (send_data_with_sliding_window(socket, file_buffer, file_size, &sequence) < 0) {
+                    fprintf(stderr, "Failed to send file data\n");
+                }
+                
+                free(file_buffer);
+                printf("File sent: %s\n", filename);
             }
-
-            // Update the last seen sequence number
-            last_sequence = received_frame.sequence;
         }
     }
-}
 
     close(socket);
     return 0;
