@@ -7,7 +7,6 @@
 #include "rawsocket.h"
 
 uint8_t calculate_crc(const Frame* frame) {
-    // Simple XOR-based CRC for demonstration purposes
     uint8_t crc = 0;
     const uint8_t* data = (const uint8_t*)frame;
     for (size_t i = 0; i < sizeof(Frame) - 1; i++) {
