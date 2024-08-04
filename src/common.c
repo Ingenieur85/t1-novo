@@ -47,6 +47,10 @@ int send_frame(int socket, const Frame *frame) {
     dest_addr.sll_ifindex = if_nametoindex(INTERFACE);
 
     size_t frame_size = FRAME_HEADER_SIZE + (frame->size_seq >> 2) + 1; // +1 for CRC
+    
+    printf("Sending frame of size %zu\n", frame_size);
+    print_raw_frame((const uint8_t *)frame, frame_size);
+
     ssize_t bytes_sent = sendto(socket, frame, frame_size, 0,
                                 (struct sockaddr *)&dest_addr, sizeof(dest_addr));
 
@@ -55,6 +59,7 @@ int send_frame(int socket, const Frame *frame) {
         return -1;
     }
 
+    printf("Sent %zd bytes\n", bytes_sent);
     return 0;
 }
 
@@ -66,6 +71,9 @@ int recv_frame(int socket, Frame *frame) {
         return -1;
     }
 
+    printf("Received %zd bytes\n", bytes_received);
+    print_raw_frame((const uint8_t *)frame, bytes_received);
+
     if (frame->start_marker != START_MARKER) {
         fprintf(stderr, "Invalid start marker\n");
         return -1;
@@ -74,6 +82,9 @@ int recv_frame(int socket, Frame *frame) {
     uint8_t received_crc = frame->crc;
     size_t frame_size = FRAME_HEADER_SIZE + (frame->size_seq >> 2);
     uint8_t calculated_crc = calculate_crc((uint8_t*)frame, frame_size);
+
+    printf("Frame size: %zu, Received CRC: 0x%02X, Calculated CRC: 0x%02X\n", 
+           frame_size, received_crc, calculated_crc);
 
     if (received_crc != calculated_crc) {
         fprintf(stderr, "CRC mismatch: received 0x%02X, calculated 0x%02X\n", received_crc, calculated_crc);
@@ -95,4 +106,12 @@ void print_frame(const Frame *frame) {
     }
     printf("\n");
     printf("  CRC: 0x%02X\n", frame->crc);
+}
+
+void print_raw_frame(const uint8_t *frame, size_t size) {
+    printf("Raw frame bytes: ");
+    for (size_t i = 0; i < size; i++) {
+        printf("%02X ", frame[i]);
+    }
+    printf("\n");
 }

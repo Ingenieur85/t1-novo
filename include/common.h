@@ -40,5 +40,6 @@ uint8_t calculate_crc(const uint8_t *data, size_t len);
 int send_frame(int socket, const Frame *frame);
 int recv_frame(int socket, Frame *frame);
 void print_frame(const Frame *frame);
+void print_raw_frame(const uint8_t *frame, size_t size);
 
 #endif // COMMON_H
