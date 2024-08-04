@@ -1,37 +1,38 @@
+// client.c
 #include <stdio.h>
 #include <string.h>
-#include "common.h"
-
-extern int cria_raw_socket(char *nome_interface_rede);
+#include <unistd.h>
+#include "protocol.h"
+#include "rawsocket.h"
 
 int main() {
-    init_crc8_table();  // Initialize CRC table
-
-    int socket = cria_raw_socket(INTERFACE);
-    if (socket == -1) {
+    int socket = cria_raw_socket(INTERFACE_NAME);
+    if (socket < 0) {
         fprintf(stderr, "Failed to create raw socket\n");
         return 1;
     }
 
-    const char *test_message = "Hello, Server!";
-    Frame frame;
-    create_frame(&frame, strlen(test_message), 0, DATA, (const uint8_t *)test_message);
+    const char* test_message = "Hello, server!";
+    Frame frame_to_send = create_frame(strlen(test_message), 0, DATA, (const uint8_t*)test_message);
 
-    printf("Sending frame:\n");
-    print_frame(&frame);
+    printf("Sending frame: type=%d, size=%d, data=%s\n",
+           frame_to_send.type, frame_to_send.size, frame_to_send.data);
 
-    if (send_frame(socket, &frame) == 0) {
-        printf("Frame sent successfully\n");
-
-        // Wait for echo
-        Frame echo_frame;
-        if (recv_frame(socket, &echo_frame) == 0) {
-            printf("Received echo:\n");
-            print_frame(&echo_frame);
-        }
-    } else {
+    if (send_frame(socket, &frame_to_send) < 0) {
         fprintf(stderr, "Failed to send frame\n");
+        close(socket);
+        return 1;
     }
 
+    Frame received_frame;
+    if (receive_frame(socket, &received_frame) == 0) {
+        printf("Received response: type=%d, size=%d, data=%.*s\n",
+               received_frame.type, received_frame.size,
+               received_frame.size, received_frame.data);
+    } else {
+        fprintf(stderr, "Failed to receive response\n");
+    }
+
+    close(socket);
     return 0;
 }
