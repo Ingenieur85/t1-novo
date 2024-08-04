@@ -47,22 +47,20 @@ int main() {
                 }
                 
                 // Send file data
-                uint8_t* file_buffer = malloc(file_size);
-                if (!file_buffer) {
-                    fprintf(stderr, "Failed to allocate memory for file\n");
-                    fclose(fp);
-                    continue;
-                }
-                
-                fread(file_buffer, 1, file_size, fp);
-                fclose(fp);
-                
+                uint8_t buffer[MAX_DATA_SIZE];
+                size_t bytes_read;
                 uint8_t sequence = 0;
-                if (send_data_with_sliding_window(socket, file_buffer, file_size, &sequence) < 0) {
-                    fprintf(stderr, "Failed to send file data\n");
+                
+                while ((bytes_read = fread(buffer, 1, MAX_DATA_SIZE, fp)) > 0) {
+                    Frame data_frame = create_frame(bytes_read, sequence, DATA, buffer);
+                    if (send_and_wait_ack(socket, &data_frame, MAX_RETRIES) < 0) {
+                        fprintf(stderr, "Failed to send data frame\n");
+                        break;
+                    }
+                    sequence++;
                 }
                 
-                free(file_buffer);
+                fclose(fp);
                 printf("File sent: %s\n", filename);
             }
         }
